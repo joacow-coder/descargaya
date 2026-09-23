@@ -1,0 +1,51 @@
+.time-input {
+  width: 4rem;
+  background-color: rgb(10 10 10);
+  border: 1px solid rgb(38 38 38);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.875rem;
+  color: rgb(245 245 245);
+  text-align: center;
+}
+.time-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(139 92 246);
+}
+
+.select-input {
+  width: 100%;
+  background-color: rgb(10 10 10);
+  border: 1px solid rgb(38 38 38);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(245 245 245);
+}
+.select-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(139 92 246);
+}
+
+.tab-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(163 163 163);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.tab-btn:hover {
+  color: rgb(245 245 245);
+}
+.tab-btn-active {
+  background-color: rgb(124 58 237);
+  color: white;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

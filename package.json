@@ -1,0 +1,18 @@
+{
+  "name": "descargaya",
+  "version": "1.0.0",
+  "description": "Centro de descargas y recortes multimedia de YouTube (audio MP3 / video MP4) con yt-dlp y ffmpeg.",
+  "main": "server/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

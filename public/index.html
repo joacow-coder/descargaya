@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DescargaYa · Descargas y recortes de YouTube</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              500: '#8b5cf6',
+              600: '#7c3aed',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100 antialiased">
+  <div class="max-w-3xl mx-auto px-4 py-10 sm:py-14">
+    <header class="text-center mb-10">
+      <div class="inline-flex items-center gap-2 mb-3">
+        <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-brand-500 to-fuchsia-600 flex items-center justify-center font-bold">D</div>
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">DescargaYa</h1>
+      </div>
+      <p class="text-neutral-400 text-sm sm:text-base">Descarga y recorta audio o video de YouTube en segundos.</p>
+    </header>
+
+    <main class="space-y-6">
+      <!-- Buscador -->
+      <section class="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <form id="analyze-form" class="flex flex-col sm:flex-row gap-3">
+          <input
+            id="url-input"
+            type="text"
+            inputmode="url"
+            autocomplete="off"
+            placeholder="Pega aquí el enlace del video de YouTube..."
+            class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <button
+            id="analyze-btn"
+            type="submit"
+            class="shrink-0 bg-brand-600 hover:bg-brand-500 transition-colors rounded-xl px-5 py-3 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span id="analyze-btn-label">Analizar</span>
+            <svg id="analyze-spinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Error -->
+      <div id="error-banner" class="hidden bg-red-950/60 border border-red-800 text-red-200 rounded-xl px-4 py-3 text-sm"></div>
+
+      <!-- Vista previa del video -->
+      <section id="video-card" class="hidden bg-neutral-900/60 border border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-5">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="sm:w-56 shrink-0 aspect-video rounded-xl overflow-hidden bg-neutral-800">
+            <iframe
+              id="video-player"
+              class="w-full h-full"
+              src=""
+              title="Vista previa"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div class="min-w-0">
+            <h2 id="video-title" class="font-medium text-base sm:text-lg leading-snug line-clamp-2"></h2>
+            <p id="video-meta" class="text-neutral-400 text-sm mt-1"></p>
+          </div>
+        </div>
+
+        <!-- Recorte -->
+        <div class="border-t border-neutral-800 pt-4">
+          <p class="text-sm font-medium text-neutral-200 mb-1">Recortar (opcional)</p>
+          <p class="text-xs text-neutral-500 mb-3">Deja los campos en 0:00 para descargar el contenido completo.</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-neutral-400 block mb-1">Inicio</label>
+              <div class="flex items-center gap-1">
+                <input id="start-min" type="number" min="0" value="0" class="time-input" aria-label="Minutos de inicio" />
+                <span class="text-neutral-500">:</span>
+                <input id="start-sec" type="number" min="0" max="59" value="0" class="time-input" aria-label="Segundos de inicio" />
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-neutral-400 block mb-1">Fin</label>
+              <div class="flex items-center gap-1">
+                <input id="end-min" type="number" min="0" value="0" class="time-input" aria-label="Minutos de fin" />
+                <span class="text-neutral-500">:</span>
+                <input id="end-sec" type="number" min="0" max="59" value="0" class="time-input" aria-label="Segundos de fin" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="border-t border-neutral-800 pt-4">
+          <div class="inline-flex bg-neutral-950 border border-neutral-800 rounded-xl p-1 mb-4">
+            <button type="button" data-tab="audio" class="tab-btn tab-btn-active">Audio · MP3</button>
+            <button type="button" data-tab="video" class="tab-btn">Video · MP4</button>
+          </div>
+
+          <div id="audio-panel" class="space-y-2">
+            <label class="text-xs text-neutral-400 block">Calidad de audio</label>
+            <select id="audio-quality" class="select-input">
+              <option value="128">128 kbps</option>
+              <option value="192" selected>192 kbps</option>
+              <option value="320">320 kbps</option>
+            </select>
+          </div>
+
+          <div id="video-panel" class="space-y-2 hidden">
+            <label class="text-xs text-neutral-400 block">Resolución</label>
+            <select id="video-quality" class="select-input">
+              <option value="720" selected>720p</option>
+              <option value="1080">1080p</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Procesar -->
+        <div class="border-t border-neutral-800 pt-4">
+          <button
+            id="process-btn"
+            type="button"
+            class="w-full bg-brand-600 hover:bg-brand-500 transition-colors rounded-xl px-5 py-3 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Procesar y descargar
+          </button>
+
+          <div id="progress-wrap" class="hidden mt-4">
+            <div class="flex justify-between text-xs text-neutral-400 mb-1">
+              <span id="progress-message">Procesando...</span>
+              <span id="progress-percent">0%</span>
+            </div>
+            <div class="h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
+              <div id="progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-fuchsia-500 transition-all duration-300 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="text-center text-xs text-neutral-600 mt-12">
+      Usa esta herramienta de forma responsable y solo con contenido sobre el que tengas derechos de uso.
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
