@@ -4,4 +4,4 @@ tmp/*
 !tmp/.gitkeep
 *.log
 .DS_Store
-.impeccable/
+.impeccable/hook.cache.json

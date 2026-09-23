@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "public/index.html"
+        ],
+        "createdAt": "2026-09-23T23:54:13.533Z",
+        "reason": "tab switcher (segmented control, bg-neutral-950/border/p-1, no shadow/padding) and video thumbnail frame (bg-neutral-800, no border/shadow) inside #video-card are standard minimal UI patterns, not elevated card containers - false positive on any bg+rounded div"
+      }
+    ]
+  }
+}
