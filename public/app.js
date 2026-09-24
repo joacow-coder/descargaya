@@ -32,6 +32,45 @@
   let currentDuration = 0;
   let eventSource = null;
 
+  /**
+   * fetch envuelto a prueba de fallos: nunca deja que un body vacío, no-JSON
+   * o un error de red termine en una excepción sin manejar en el llamador.
+   * Siempre resuelve con los datos o lanza un Error con mensaje amigable.
+   */
+  async function fetchJson(url, options) {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch {
+      throw new Error('No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.');
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let data = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error((data && data.error) || `El servidor respondió con un error (${response.status}).`);
+    }
+
+    if (!data) {
+      throw new Error('El servidor no devolvió una respuesta válida. Intenta nuevamente en unos segundos.');
+    }
+
+    if (data.success === false) {
+      throw new Error(data.error || 'Ocurrió un error inesperado.');
+    }
+
+    return data;
+  }
+
   function showError(message) {
     errorBanner.textContent = message;
     errorBanner.classList.remove('hidden');
@@ -81,16 +120,11 @@
     videoCard.classList.add('hidden');
 
     try {
-      const res = await fetch('/api/info', {
+      const data = await fetchJson('/api/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo analizar el video.');
-      }
 
       currentDuration = data.duration || 0;
       videoTitle.textContent = data.title || 'Video sin título';
@@ -156,16 +190,11 @@
     progressMessage.textContent = 'Enviando solicitud...';
 
     try {
-      const res = await fetch('/api/jobs', {
+      const data = await fetchJson('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, type: currentType, quality, start, end }),
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo iniciar el procesamiento.');
-      }
 
       trackJob(data.jobId);
     } catch (err) {
@@ -178,7 +207,12 @@
     eventSource = new EventSource(`/api/jobs/${jobId}/events`);
 
     eventSource.onmessage = (event) => {
-      const job = JSON.parse(event.data);
+      let job;
+      try {
+        job = JSON.parse(event.data);
+      } catch {
+        return;
+      }
       const pct = Math.round(job.progress || 0);
 
       progressBar.style.width = `${pct}%`;

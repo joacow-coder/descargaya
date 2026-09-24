@@ -21,7 +21,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api', apiRouter);
 
 app.use((req, res) => {
-  res.status(404).json({ error: 'Recurso no encontrado.' });
+  res.status(404).json({ success: false, error: 'Recurso no encontrado.' });
 });
 
 app.use(errorHandler);
