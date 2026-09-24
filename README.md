@@ -30,6 +30,8 @@ descargaya/
 │   ├── styles.css                # Estilos puntuales complementarios
 │   └── app.js                    # Lógica del cliente (fetch + EventSource)
 ├── tmp/                           # Carpeta temporal de trabajo (se autolimpia)
+├── Dockerfile                     # Imagen para desplegar en Render/Railway/Fly.io/Cloud Run
+├── .dockerignore
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -126,6 +128,54 @@ Si ves un **404** al analizar una URL, la causa casi siempre es alguna de estas 
 3. **Desplegaste el frontend y el backend por separado** (por ejemplo frontend en Netlify/Vercel y backend en Render/Railway). En ese caso las rutas relativas `/api/...` apuntan al host del frontend, no al backend. Soluciones:
    - Recomendado: despliega todo junto (esta app ya sirve frontend + API desde el mismo proceso `npm start`).
    - Alternativa: si de verdad necesitas separarlos, cambia las llamadas de `public/app.js` para apuntar a la URL absoluta de tu backend y define `CORS_ORIGIN=https://tu-frontend.com` en el `.env` del backend para permitir la petición cross-origin.
+4. **Publicaste el proyecto en Cloudflare Pages (o cualquier hosting estático puro / serverless tipo Workers).** Esta es la causa si ves 404 en *todas* las rutas `/api/*` sin excepción. Cloudflare Pages solo sirve archivos estáticos; sus "Functions" corren en el runtime de Cloudflare Workers, que **no** es Node.js: no soporta `child_process` ni puede ejecutar binarios externos como `yt-dlp` o `ffmpeg`, y no mantiene un proceso persistente ni sistema de archivos de escritura. El backend de esta app necesita eso, así que en Cloudflare Pages nunca va a responder — no importa cuánto se ajusten las rutas. Ver la sección [Despliegue en producción](#despliegue-en-producción) para desplegarlo en un hosting que sí soporte esto.
+
+## Despliegue en producción
+
+Esta app necesita un **proceso Node.js persistente** con `yt-dlp` y `ffmpeg` instalados en el mismo servidor, y espacio de disco de escritura temporal. Eso descarta hostings puramente estáticos/serverless (**Cloudflare Pages, Netlify, GitHub Pages, Vercel en su modo por defecto**). Necesitas un hosting que corra contenedores o procesos Node de larga duración: **Render, Railway, Fly.io, Google Cloud Run, un VPS (DigitalOcean, Linode, tu propia máquina), etc.**
+
+El repo incluye un `Dockerfile` listo para eso — instala Node, `ffmpeg` y `yt-dlp` en la imagen, así que sirve para cualquiera de esos hostings sin configuración adicional.
+
+### Probar la imagen Docker en local (recomendado antes de desplegar)
+
+```bash
+docker build -t descargaya .
+docker run --rm -p 3000:3000 descargaya
+```
+
+Abre `http://localhost:3000` y repite el [protocolo de prueba](#protocolo-de-prueba-local-con-url-de-ejemplo) con la URL de ejemplo. Si funciona aquí, funcionará igual en cualquier hosting basado en contenedores.
+
+### Desplegar en Render (gratis, el más simple con tu repo de GitHub)
+
+1. Entra a [render.com](https://render.com) → **New** → **Web Service**.
+2. Conecta tu repositorio `https://github.com/joacow-coder/descargaya`.
+3. Render detecta el `Dockerfile` automáticamente (Environment: **Docker**). Si te pregunta, deja el **Dockerfile Path** en `./Dockerfile`.
+4. En **Environment Variables**, agrega al menos `PORT=3000` (Render también inyecta su propio `PORT`; la app ya lo respeta vía `process.env.PORT`, así que puedes omitirlo).
+5. Deploy. Cuando termine, tu app queda en `https://tu-app.onrender.com` — sirve frontend y API desde ahí mismo, sin necesidad de Cloudflare Pages ni de configurar CORS.
+
+### Desplegar en Railway / Fly.io / Cloud Run
+
+Todos detectan el `Dockerfile` del repo de forma similar:
+
+```bash
+# Railway (CLI)
+railway login
+railway init
+railway up
+
+# Fly.io (CLI)
+fly launch          # detecta el Dockerfile, sigue el asistente
+fly deploy
+
+# Google Cloud Run
+gcloud run deploy descargaya --source . --port 3000 --allow-unauthenticated
+```
+
+### ¿Y Cloudflare?
+
+Si quieres seguir usando Cloudflare igual, dos opciones reales:
+- Úsalo solo como DNS/proxy (naranja) apuntando a tu backend desplegado en Render/Railway/Fly.io — el dominio se ve con Cloudflare delante, pero quien responde `/api/*` es tu servidor Node real.
+- **Cloudflare Containers** (producto en beta, de pago) sí soporta contenedores Docker persistentes y podría correr este `Dockerfile`, pero es una configuración avanzada y separada de Cloudflare Pages; no la cubrimos aquí porque Render/Railway resuelven lo mismo de forma más simple y con capa gratuita.
 
 ## Uso
 
