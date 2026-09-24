@@ -1,10 +1,52 @@
 const { spawn, execFile } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
+const fs = require('fs');
 const fsp = require('fs/promises');
 
 const execFileAsync = promisify(execFile);
 const YT_DLP_PATH = process.env.YT_DLP_PATH || 'yt-dlp';
+
+// Resuelve una vez, al primer uso, la ruta a un archivo de cookies (si se configuró).
+let cookiesPathCache;
+
+function resolveCookiesPath() {
+  if (cookiesPathCache !== undefined) return cookiesPathCache;
+  cookiesPathCache = null;
+
+  const configuredFile = process.env.YT_DLP_COOKIES_FILE;
+  if (configuredFile && fs.existsSync(configuredFile)) {
+    cookiesPathCache = configuredFile;
+    return cookiesPathCache;
+  }
+
+  const inlineCookies = process.env.YT_DLP_COOKIES;
+  if (inlineCookies) {
+    const dest = path.join(process.env.TMP_DIR || './tmp', 'cookies.txt');
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, inlineCookies, 'utf8');
+      cookiesPathCache = dest;
+    } catch (err) {
+      console.error('[yt-dlp] No se pudo escribir el archivo de cookies desde YT_DLP_COOKIES:', err.message);
+    }
+  }
+
+  return cookiesPathCache;
+}
+
+// Argumentos comunes para evitar el bloqueo "Sign in to confirm you're not a bot"
+// de YouTube, frecuente en IPs de datacenter (hostings en la nube). El cliente
+// "android" suele evitar ese chequeo; las cookies son el respaldo más confiable
+// si el bloqueo persiste. Ver README > Autenticación con cookies.
+function getAntiBotArgs() {
+  const args = ['--extractor-args', 'youtube:player_client=android,web'];
+  const cookiesPath = resolveCookiesPath();
+  if (cookiesPath) {
+    args.push('--cookies', cookiesPath);
+  }
+  return args;
+}
 
 function translateYtDlpError(err) {
   const text = `${err.stderr || err.message || ''}`;
@@ -16,6 +58,9 @@ function translateYtDlpError(err) {
     return new Error('El video no está disponible o fue eliminado.');
   }
   if (/Sign in to confirm/i.test(text)) {
+    console.warn(
+      '[yt-dlp] YouTube pidió verificación de bot. Configura YT_DLP_COOKIES_FILE o YT_DLP_COOKIES en el servidor (ver README > Autenticación con cookies).'
+    );
     return new Error('YouTube requiere verificación adicional para este video y no puede procesarse automáticamente.');
   }
   if (/age.?restrict/i.test(text)) {
@@ -51,7 +96,14 @@ function isTransientError(err) {
 }
 
 async function getVideoInfo(url) {
-  const args = ['--dump-json', '--no-warnings', '--no-playlist', '--skip-download', url];
+  const args = [
+    '--dump-json',
+    '--no-warnings',
+    '--no-playlist',
+    '--skip-download',
+    ...getAntiBotArgs(),
+    url,
+  ];
   let lastErr;
 
   for (let attempt = 1; attempt <= INFO_MAX_ATTEMPTS; attempt++) {
@@ -97,7 +149,7 @@ function runYtDlpDownloadOnce({ url, type, quality, outputTemplate, onProgress }
         ? 'bestaudio/best'
         : `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
 
-    const args = ['-f', format, '--no-playlist', '--no-warnings', '-o', outputTemplate];
+    const args = ['-f', format, '--no-playlist', '--no-warnings', '-o', outputTemplate, ...getAntiBotArgs()];
 
     if (type === 'video') {
       args.push('--merge-output-format', 'mp4');

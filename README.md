@@ -237,11 +237,33 @@ Si esto falla con 404, el problema es de enrutamiento/despliegue (ver [Arquitect
 
 Si algún paso falla, la interfaz mostrará un mensaje de error amigable (no un crash) y la consola del servidor tendrá el detalle técnico exacto.
 
+## Autenticación con cookies (evitar bloqueos de YouTube)
+
+Si ves el error **"YouTube requiere verificación adicional para este video"**, es el mensaje `Sign in to confirm you're not a bot` de YouTube. Ocurre porque YouTube trata distinto a las peticiones que vienen de IPs de datacenter (Render, Railway, AWS, GCP, cualquier hosting en la nube) frente a una IP residencial normal, y a veces exige "iniciar sesión" para servir el video.
+
+La app ya intenta evitarlo automáticamente (usa el cliente `android` de YouTube internamente, que suele esquivar ese chequeo), pero si el bloqueo persiste, la solución confiable es darle a `yt-dlp` cookies de una sesión real de YouTube:
+
+**1. Exporta tus cookies de YouTube:**
+
+- Instala la extensión de navegador **[Get cookies.txt LOCALLY](https://chrome.google.com/webstore)** (Chrome/Edge/Firefox).
+- Inicia sesión en [youtube.com](https://youtube.com) con una cuenta de Google (se recomienda una cuenta secundaria, no tu cuenta principal, ya que estas cookies dan acceso a esa sesión).
+- Con la extensión, exporta las cookies del sitio `youtube.com` en formato Netscape → guarda el archivo como `cookies.txt`.
+- **Nunca subas `cookies.txt` a git** (ya está en `.gitignore`).
+
+**2. Configúralas en tu servidor:**
+
+- **En Render:** Dashboard de tu servicio → **Environment** → **Secret Files** → agrega un archivo con el contenido de tu `cookies.txt` y ruta destino, por ejemplo `/etc/secrets/cookies.txt`. Luego agrega la variable de entorno `YT_DLP_COOKIES_FILE=/etc/secrets/cookies.txt`.
+- **En otros hostings sin "secret files":** pega el contenido completo de `cookies.txt` en la variable de entorno `YT_DLP_COOKIES` (la app lo escribe a disco al arrancar). Revisa que tu proveedor soporte variables de entorno multilínea.
+- **En local:** guarda el archivo donde quieras y define `YT_DLP_COOKIES_FILE=/ruta/a/cookies.txt` en tu `.env`.
+
+Las cookies caducan cada cierto tiempo (semanas/meses); si el bloqueo vuelve a aparecer, repite el proceso de exportación.
+
 ## Solución de problemas
 
 - **"yt-dlp no está instalado o no se encuentra en el PATH"**: confirma `yt-dlp --version` en la misma terminal/usuario con el que corre `npm start`, y que `~/.local/bin` (si usaste `pip install --user`) esté en tu `PATH`.
 - **"No se pudo iniciar ffmpeg"**: instala ffmpeg con `sudo apt install ffmpeg` y verifica `ffmpeg -version`.
 - **Videos con restricción de edad o "privados"**: no se pueden procesar automáticamente por políticas de YouTube.
+- **"YouTube requiere verificación adicional"**: ver [Autenticación con cookies](#autenticación-con-cookies-evitar-bloqueos-de-youtube) arriba.
 - **El progreso se detiene**: revisa la consola del servidor (`npm start`) para ver el error real de `yt-dlp`/`ffmpeg`.
 
 ## Comandos Git para subir el proyecto a GitHub

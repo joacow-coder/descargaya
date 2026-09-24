@@ -5,3 +5,4 @@ tmp/*
 *.log
 .DS_Store
 .impeccable/hook.cache.json
+cookies.txt
