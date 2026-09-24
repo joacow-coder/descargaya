@@ -106,6 +106,26 @@ npm run dev
 | `JOB_TTL_MINUTES`        | Minutos antes de limpiar automáticamente archivos huérfanos | `30`               |
 | `YT_DLP_PATH`            | Ruta/alias del binario `yt-dlp`                            | `yt-dlp`           |
 | `FFMPEG_PATH`            | Ruta/alias del binario `ffmpeg`                            | `ffmpeg`           |
+| `CORS_ORIGIN`            | Solo si el frontend corre en otro origen/puerto que el backend (ver [Arquitectura y rutas](#arquitectura-y-rutas-de-la-api)) | *(vacío = deshabilitado)* |
+
+## Arquitectura y rutas de la API
+
+**Importante:** este proyecto es una única app Express que sirve el frontend (`public/`) **y** la API (`/api/*`) desde el mismo servidor y el mismo puerto. El frontend llama a rutas **relativas** (`/api/info`, `/api/jobs`, ...), por lo que mientras accedas a la app desde `http://localhost:3000` (o el dominio donde despliegues `npm start`), nunca hay un problema de puertos ni de CORS — ambos viven en el mismo origen.
+
+| Método | Ruta                     | Qué hace                                                        |
+|--------|--------------------------|-------------------------------------------------------------------|
+| `POST` | `/api/info`              | Analiza la URL con `yt-dlp` y devuelve título/miniatura/duración |
+| `POST` | `/api/jobs`               | Crea un trabajo de descarga (audio o video, con recorte opcional) |
+| `GET`  | `/api/jobs/:id/events`    | Stream SSE con el progreso en tiempo real del trabajo             |
+| `GET`  | `/api/jobs/:id/file`      | Descarga el archivo final una vez el trabajo está `done`          |
+
+Si ves un **404** al analizar una URL, la causa casi siempre es alguna de estas (no un bug en las rutas en sí, que ya están verificadas):
+
+1. **Abriste `public/index.html` directamente en el navegador** (doble clic, `file://...`, o una extensión tipo "Live Server") en lugar de entrar a `http://localhost:3000`. En ese caso el navegador intenta pedir `/api/info` a ese otro origen, que no tiene esa ruta, y responde 404.
+2. **El servidor Node no está corriendo** o corre en un puerto distinto al que usas en el navegador (revisa `PORT` en `.env` y la consola donde ejecutaste `npm start`).
+3. **Desplegaste el frontend y el backend por separado** (por ejemplo frontend en Netlify/Vercel y backend en Render/Railway). En ese caso las rutas relativas `/api/...` apuntan al host del frontend, no al backend. Soluciones:
+   - Recomendado: despliega todo junto (esta app ya sirve frontend + API desde el mismo proceso `npm start`).
+   - Alternativa: si de verdad necesitas separarlos, cambia las llamadas de `public/app.js` para apuntar a la URL absoluta de tu backend y define `CORS_ORIGIN=https://tu-frontend.com` en el `.env` del backend para permitir la petición cross-origin.
 
 ## Uso
 
@@ -122,6 +142,50 @@ npm run dev
 - El video se descarga ya en contenedor MP4 (`--merge-output-format mp4`); solo se reencodea con `libx264`/`aac` cuando el usuario solicita un recorte.
 - Los archivos temporales se guardan en carpetas por trabajo dentro de `TMP_DIR` y se eliminan automáticamente tras la descarga o por el barrido periódico (`JOB_TTL_MINUTES`).
 - Los errores de `yt-dlp` (video privado, no disponible, restringido, URL inválida, etc.) se traducen a mensajes claros en español en la interfaz.
+
+## Protocolo de prueba local (con URL de ejemplo)
+
+Usa esta URL de prueba (incluye parámetros de playlist/radio, que la app ignora correctamente gracias a `--no-playlist`):
+
+```
+https://www.youtube.com/watch?v=ySTvUYhUeJ4&list=RDySTvUYhUeJ4&start_radio=1
+```
+
+**Paso 1 — Levantar el entorno:**
+
+```bash
+npm install
+cp .env.example .env
+npm start
+```
+
+Debes ver en la terminal: `descargaya escuchando en http://localhost:3000`.
+
+**Paso 2 — Verificar el backend directamente (antes de tocar la interfaz):**
+
+```bash
+curl -s -X POST http://localhost:3000/api/info \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.youtube.com/watch?v=ySTvUYhUeJ4&list=RDySTvUYhUeJ4&start_radio=1"}'
+```
+
+Respuesta esperada (HTTP 200, JSON con `success:true`):
+
+```json
+{"success":true,"id":"ySTvUYhUeJ4","title":"...","thumbnail":"...","duration":184,"uploader":"..."}
+```
+
+Si esto falla con 404, el problema es de enrutamiento/despliegue (ver [Arquitectura y rutas](#arquitectura-y-rutas-de-la-api)). Si responde con `success:false` y un mensaje de error, el problema es de `yt-dlp`/red — revisa la consola del servidor, ahí quedan registrados el intento y el `stderr` real.
+
+**Paso 3 — Probar en la interfaz:**
+
+1. Abre **http://localhost:3000** (no abras el archivo `index.html` directamente).
+2. Pega la URL de prueba y pulsa **Analizar** → deben aparecer la miniatura, el título "Aitana - SUPERESTRELLA (Letra/Lyrics)" y la vista previa embebida.
+3. Define un recorte, por ejemplo Inicio `0:10` y Fin `0:40`.
+4. Pestaña **Audio**, calidad `192 kbps` → **Procesar y descargar** → debe verse la barra de progreso avanzar y descargarse un `descargaya.mp3` de ~30s.
+5. Repite el análisis, cambia a pestaña **Video**, resolución `720p`, sin recorte → **Procesar y descargar** → debe descargarse `descargaya.mp4`.
+
+Si algún paso falla, la interfaz mostrará un mensaje de error amigable (no un crash) y la consola del servidor tendrá el detalle técnico exacto.
 
 ## Solución de problemas
 

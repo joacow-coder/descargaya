@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -13,8 +14,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const TMP_DIR = process.env.TMP_DIR || './tmp';
 const JOB_TTL_MINUTES = Number(process.env.JOB_TTL_MINUTES || 30);
+const CORS_ORIGIN = process.env.CORS_ORIGIN;
 
 fs.mkdirSync(TMP_DIR, { recursive: true });
+
+// Por defecto la app sirve frontend y API desde el mismo origen (sin CORS
+// necesario). Si despliegas el frontend en un dominio/puerto distinto al
+// backend, define CORS_ORIGIN en .env (una URL, o varias separadas por coma).
+if (CORS_ORIGIN) {
+  const allowedOrigins = CORS_ORIGIN.split(',').map((o) => o.trim());
+  app.use(cors({ origin: allowedOrigins }));
+  console.log(`CORS habilitado para: ${allowedOrigins.join(', ')}`);
+}
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
