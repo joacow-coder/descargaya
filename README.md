@@ -31,6 +31,7 @@ descargaya/
 │   └── app.js                    # Lógica del cliente (fetch + EventSource)
 ├── tmp/                           # Carpeta temporal de trabajo (se autolimpia)
 ├── Dockerfile                     # Imagen para desplegar en Render/Railway/Fly.io/Cloud Run
+├── docker-entrypoint.sh           # Actualiza yt-dlp en cada arranque del contenedor
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
@@ -241,7 +242,9 @@ Si algún paso falla, la interfaz mostrará un mensaje de error amigable (no un 
 
 Si ves el error **"YouTube requiere verificación adicional para este video"**, es el mensaje `Sign in to confirm you're not a bot` de YouTube. Ocurre porque YouTube trata distinto a las peticiones que vienen de IPs de datacenter (Render, Railway, AWS, GCP, cualquier hosting en la nube) frente a una IP residencial normal, y a veces exige "iniciar sesión" para servir el video.
 
-La app ya intenta evitarlo automáticamente (usa el cliente `android` de YouTube internamente, que suele esquivar ese chequeo), pero si el bloqueo persiste, la solución confiable es darle a `yt-dlp` cookies de una sesión real de YouTube:
+La app ya intenta evitarlo automáticamente (usa el cliente `android` de YouTube internamente, que suele esquivar ese chequeo). Además, `docker-entrypoint.sh` reinstala `yt-dlp` a la última versión **en cada arranque del contenedor** (no solo al construir la imagen) — esto es clave porque Docker cachea capas de build, y `yt-dlp` saca releases muy seguido para responder a los cambios de YouTube; sin esto, un redeploy puede seguir usando una versión de `yt-dlp` vieja aunque el código de la app sí se haya actualizado.
+
+Si con eso el bloqueo persiste, la solución confiable es darle a `yt-dlp` cookies de una sesión real de YouTube:
 
 **1. Exporta tus cookies de YouTube:**
 

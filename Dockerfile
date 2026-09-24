@@ -18,8 +18,11 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY . .
+RUN chmod +x docker-entrypoint.sh
 
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["node", "server/index.js"]
+# El entrypoint reintenta actualizar yt-dlp en cada arranque del contenedor
+# (no solo en el build) antes de levantar el servidor. Ver docker-entrypoint.sh.
+ENTRYPOINT ["./docker-entrypoint.sh"]
